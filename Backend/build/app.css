@@ -9,3 +9,19 @@ body {
     font-weight: 400;
     font-style: normal;
 }
+
+:root {
+    --sidebar-width: 15rem;
+}
+
+@media (max-width: 840px) {
+    :root {
+        --sidebar-width: 4.5rem;
+    }
+}
+
+@media (max-width: 600px) {
+    :root {
+        --sidebar-width: 0rem;
+    }
+}

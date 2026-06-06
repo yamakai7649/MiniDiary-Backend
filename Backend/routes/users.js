@@ -36,13 +36,23 @@ router.put("/:id", isLoggedIn, async (req, res, next) => {
     if (profilePictureId !== undefined) updates.profilePictureId = profilePictureId;
     if (username !== undefined) updates.username = username;
 
-    const user = await User.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
     if (!user) return next(new CustomError("ユーザーが見つかりません", 404));
 
     const { password: _, ...others } = user._doc;
 
     return res.status(200).json(others);
   } catch (err) {
+    if (err.name === "ValidationError") {
+      return next(new CustomError("ユーザー名は4文字以上、15文字以内で入力してください", 400));
+    }
+    if (err.code === 11000 && err.keyPattern?.username) {
+      return next(new CustomError("そのユーザー名はすでに使われています", 409));
+    }
     return next(err);
   }
 });
