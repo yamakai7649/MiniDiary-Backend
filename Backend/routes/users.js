@@ -25,6 +25,10 @@ router.get("/recommendation", async (req, res, next) => {
 //ユーザーの更新
 router.put("/:id", isLoggedIn, async (req, res, next) => {
   try {
+    if (req.params.id !== req.session.user.id.toString()) {
+      return next(new CustomError("ユーザーを更新する権限がありません", 403));
+    }
+
     const { desc, profilePicture, profilePictureId, username } = req.body;
     const updates = {};
     if (desc !== undefined) updates.desc = desc;
@@ -33,6 +37,8 @@ router.put("/:id", isLoggedIn, async (req, res, next) => {
     if (username !== undefined) updates.username = username;
 
     const user = await User.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+    if (!user) return next(new CustomError("ユーザーが見つかりません", 404));
+
     const { password: _, ...others } = user._doc;
 
     return res.status(200).json(others);
@@ -44,7 +50,7 @@ router.put("/:id", isLoggedIn, async (req, res, next) => {
 //ユーザーの削除
 router.delete("/", isLoggedIn, async (req, res, next) => {
   try {
-    const { userId } = req.query;
+    const userId = req.session.user.id;
     const posts = await Post.find({ userId });
 
     await Promise.all(
@@ -76,6 +82,9 @@ router.get("/", async (req, res, next) => {
     const user = userId
       ? await User.findById(userId)
       : await User.findOne({ username });
+
+    if (!user) return next(new CustomError("ユーザーが見つかりません", 404));
+
     const { password, updatedAt, ...others } = user._doc;
 
     return res.status(200).json(others);
@@ -86,13 +95,16 @@ router.get("/", async (req, res, next) => {
 
 //ユーザーのフォロー
 router.put("/:username/follow", isLoggedIn, async (req, res, next) => {
-  if (req.body.username === req.params.username) {
-    return next(new CustomError("自分のことをフォローすることはできません", 400));
-  }
-
   try {
     const user = await User.findOne({ username: req.params.username });
-    const currentUser = await User.findOne({ username: req.body.username });
+    if (!user) return next(new CustomError("ユーザーが見つかりません", 404));
+
+    const currentUser = await User.findById(req.session.user.id);
+    if (!currentUser) return next(new CustomError("ログインユーザーが見つかりません", 404));
+
+    if (currentUser.id === user.id) {
+      return next(new CustomError("自分のことをフォローすることはできません", 400));
+    }
 
     if (currentUser.followings.includes(user.id)) {
       return next(new CustomError("そのユーザーはすでにフォロー済みです", 409));
@@ -123,13 +135,16 @@ router.put("/:username/follow", isLoggedIn, async (req, res, next) => {
 
 //ユーザーのフォローを外す
 router.put("/:username/unfollow", isLoggedIn, async (req, res, next) => {
-  if (req.body.username === req.params.username) {
-    return next(new CustomError("自分のことをフォロー解除することはできません", 400));
-  }
-
   try {
     const user = await User.findOne({ username: req.params.username });
-    const currentUser = await User.findOne({ username: req.body.username });
+    if (!user) return next(new CustomError("ユーザーが見つかりません", 404));
+
+    const currentUser = await User.findById(req.session.user.id);
+    if (!currentUser) return next(new CustomError("ログインユーザーが見つかりません", 404));
+
+    if (currentUser.id === user.id) {
+      return next(new CustomError("自分のことをフォロー解除することはできません", 400));
+    }
 
     if (!currentUser.followings.includes(user.id)) {
       return next(new CustomError("そのユーザーはまだフォローしていません", 409));

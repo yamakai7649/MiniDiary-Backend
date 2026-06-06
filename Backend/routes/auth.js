@@ -91,6 +91,11 @@ router.get("/user", async (req, res, next) => {
 
     const { id } = req.session.user;
     const user = await User.findById(id);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(200).json(null);
+    }
+
     const { password: _, ...others } = user._doc;
 
     return res.status(200).json(others);

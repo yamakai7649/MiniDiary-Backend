@@ -3,6 +3,10 @@ const cloudinary = require("cloudinary").v2;
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const multer = require("multer");
 require("dotenv").config();
+const CustomError = require("../CustomError");
+const Post = require("../models/Post");
+const User = require("../models/User");
+const isLoggedIn = require("../middleware/isLoggedIn");
 
 const router = express.Router();
 
@@ -22,8 +26,12 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-router.post("/", upload.single("file"), async (req, res, next) => {
+router.post("/", isLoggedIn, upload.single("file"), async (req, res, next) => {
   try {
+    if (!req.file) {
+      return next(new CustomError("画像ファイルが必要です", 400));
+    }
+
     const imageUrl = req.file.path;
     const publicId = req.file.filename;
 
@@ -33,12 +41,24 @@ router.post("/", upload.single("file"), async (req, res, next) => {
   }
 });
 
-router.delete("/delete", async (req, res, next) => {
+router.delete("/delete", isLoggedIn, async (req, res, next) => {
   try {
     const { public_id } = req.query;
 
     if (!public_id) {
       return res.status(400).json({ error: "public_idが必要です" });
+    }
+
+    const [post, user] = await Promise.all([
+      Post.findOne({ imgId: public_id }),
+      User.findOne({ profilePictureId: public_id }),
+    ]);
+    const sessionUserId = req.session.user.id.toString();
+    const canDeletePostImage = post && post.userId === sessionUserId;
+    const canDeleteProfileImage = user && user._id.toString() === sessionUserId;
+
+    if (!canDeletePostImage && !canDeleteProfileImage) {
+      return next(new CustomError("画像を削除する権限がありません", 403));
     }
 
     const result = await cloudinary.uploader.destroy(public_id);
