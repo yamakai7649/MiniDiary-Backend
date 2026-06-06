@@ -33,8 +33,9 @@ router.put("/:id", isLoggedIn, async (req, res, next) => {
     if (username !== undefined) updates.username = username;
 
     const user = await User.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+    const { password: _, ...others } = user._doc;
 
-    return res.status(200).json(user);
+    return res.status(200).json(others);
   } catch (err) {
     return next(err);
   }

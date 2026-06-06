@@ -37,9 +37,12 @@ router.delete("/:id", isLoggedIn, async (req, res, next) => {
   try {
     const comment = await Comment.findById(req.params.id);
     const post = await Post.findOne({ comments: comment._id });
+    const sessionUserId = req.session.user.id.toString();
+    const isCommentOwner = comment.userId === sessionUserId;
+    const isPostOwner = post && post.userId === sessionUserId;
 
-    if (comment.userId !== req.query.userId) {
-      return next(new CustomError("投稿を削除する権限がありません", 403));
+    if (!isCommentOwner && !isPostOwner) {
+      return next(new CustomError("コメントを削除する権限がありません", 403));
     }
 
     const deletedComment = await comment.deleteOne();
@@ -69,9 +72,7 @@ router.get("/timeline/:postId", async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.postId);
     const comments = await Promise.all(
-      post.comments.map((commentId) => {
-        return Comment.find({ _id: commentId });
-      })
+      post.comments.map((commentId) => Comment.findById(commentId))
     );
 
     return res.status(200).json(comments);

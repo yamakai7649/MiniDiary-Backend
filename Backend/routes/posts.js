@@ -52,7 +52,7 @@ router.put("/:id", isLoggedIn, async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id);
 
-    if (post.userId !== req.body.userId) {
+    if (post.userId !== req.session.user.id.toString()) {
       return next(new CustomError("投稿を編集する権限がありません", 403));
     }
 
@@ -69,8 +69,8 @@ router.delete("/:id", isLoggedIn, async (req, res, next) => {
   try {
     const post = await Post.findById(req.params.id);
 
-    if (post.userId !== req.query.userId) {
-      return next(new CustomError("投稿を編集する権限がありません", 403));
+    if (post.userId !== req.session.user.id.toString()) {
+      return next(new CustomError("投稿を削除する権限がありません", 403));
     }
 
     const deletedComments = await Promise.all(
